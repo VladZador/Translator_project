@@ -4,18 +4,23 @@ import re
 from docx2python import docx2python
 from bs4 import BeautifulSoup
 
+
+filename = "Stattia.docx"
+
+# todo: add font size, languages as variables
+FONT_SIZE = 14
+
 # open the document
-docx_content = docx2python("Test.docx", html=True)
+docx_content = docx2python(filename, html=True)
 
 # save images
 docx_content.save_images('media')
 
 # parse through the content
 soup = BeautifulSoup(docx_content.text, "html.parser")
-text = soup.get_text()
 
 # break text into paragraphs and discards empty ones
-paragraphs = [p for p in text.splitlines() if p]
+paragraphs = [p for p in soup.get_text().splitlines() if p]
 
 # discard the image placeholders in text
 text_blocks = set([])
@@ -41,13 +46,10 @@ for block in text_blocks:
         trans_table.append((block, f" {response} "))
     time.sleep(0.1)
 
-text = docx_content.text
+# Prepare the text for editing
+text = docx_content.text.replace("\n", "").replace("\t", "")
 for trans_tuple in trans_table:
     text = text.replace(trans_tuple[0], trans_tuple[1])
-
-
-# todo: 1) find a way to change the image placeholder into an actual image tag;
-#  2) Change the <span> tag to <p>
 
 
 # Find occurrences of a pattern like "----media/image1.png----
@@ -59,13 +61,13 @@ for trans_tuple in trans_table:
 #         "\." matches "."
 #         ".{3}" matches exactly 3 any characters
 regex_for_image = re.compile(r'----media/(image\d+\..{3})----')
-image_placeholders = set(regex_for_image.findall(docx_content.text))
+image_placeholders = set(regex_for_image.findall(text))
 
 # Edit image placeholders
 # First, search for images inside text blocks (with incorrect <span> tags)
 for img_pl in image_placeholders:
     if f'</span>----media/{img_pl}----<span style="font-size:28pt">' in text:
-        text.replace(
+        text = text.replace(
             f'</span>----media/{img_pl}----<span style="font-size:28pt">',
             f'<foo_bar_baz><img src="media/{img_pl}" alt="{img_pl}">'
             f'</foo_bar_baz>')
@@ -73,7 +75,7 @@ for img_pl in image_placeholders:
 # Second, for other images
 for img_pl in image_placeholders:
     if f'----media/{img_pl}----' in text:
-        text.replace(
+        text = text.replace(
             f'----media/{img_pl}----',
             f'<foo_bar_baz><img src="media/{img_pl}" alt="{img_pl}">'
             f'</foo_bar_baz>')
@@ -86,7 +88,8 @@ text = text.replace("foo_bar_baz>", "span>")
 
 
 # write a html file
-with open("Test.html", "w") as html_file:
+filename = filename.rsplit(".", 1)[0] + ".html"
+with open(filename, "w") as html_file:
     html_file.write('<!DOCTYPE html><html lang="en"><head><meta charset='
                     '"UTF-8"><title>Translation</title></head><body>')
     html_file.write(text)
