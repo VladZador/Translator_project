@@ -1,11 +1,10 @@
 import requests
-import time
 import re
 from docx2python import docx2python
 from bs4 import BeautifulSoup
 
 
-filename = "Stattia.docx"
+filename = "Test.docx"
 
 # todo: add font size, languages as variables
 FONT_SIZE = 14
@@ -44,7 +43,6 @@ for block in text_blocks:
             if item[0]:
                 response += item[0]
         trans_table.append((block, f" {response} "))
-    time.sleep(0.1)
 
 # Prepare the text for editing
 text = docx_content.text.replace("\n", "").replace("\t", "")
@@ -64,17 +62,22 @@ regex_for_image = re.compile(r'----media/(image\d+\..{3})----')
 image_placeholders = set(regex_for_image.findall(text))
 
 # Edit image placeholders
-# First, search for images inside text blocks (with incorrect <span> tags)
 for img_pl in image_placeholders:
+    # First, search for images inside text blocks (with incorrect <span> tags)
     if f'</span>----media/{img_pl}----<span style="font-size:28pt">' in text:
         text = text.replace(
             f'</span>----media/{img_pl}----<span style="font-size:28pt">',
             f'<foo_bar_baz><img src="media/{img_pl}" alt="{img_pl}">'
             f'</foo_bar_baz>')
-
-# Second, for other images
-for img_pl in image_placeholders:
-    if f'----media/{img_pl}----' in text:
+    # Second, for images with an extension other than .wmf, which is used for
+    # formulas in MS Word. These images are usually figures that are placed in
+    # a separate paragraph
+    elif not img_pl.endswith(".wmf"):
+        text = text.replace(
+            f'----media/{img_pl}----',
+            f'<p><img src="media/{img_pl}" alt="{img_pl}"></p>')
+    # Third, other .wmf images
+    else:
         text = text.replace(
             f'----media/{img_pl}----',
             f'<foo_bar_baz><img src="media/{img_pl}" alt="{img_pl}">'
