@@ -5,161 +5,299 @@ import re
 from docx2python import docx2python
 from bs4 import BeautifulSoup
 
-start1 = time.perf_counter()
 
-filename = "Аврамов_укр.docx"
+def _open_doc(file_name: str, image_folder: str = None, html=False) -> str:
+    """
+    Open the document, save images and write the text into a variable
+    :param file_name:
+    :param image_folder:
+    :param html:
+    :return:
+    """
+    with docx2python(
+            file_name,
+            image_folder=image_folder,
+            html=html
+    ) as docx_content:
+        doc_text = docx_content.text
+    return doc_text
 
-LANG_IN = "uk"
-LANG_OUT = "en"
 
-# open the document, save images and write the text into a variable
-with docx2python(filename, image_folder="media", html=True) as docx_content:
-    docx_text = docx_content.text
+def _parse_through_html(html_content: str) -> str:
+    """
+    Parse through a given html content
+    :param html_content: string of a html content
+    :return: parsed text
+    """
+    soup = BeautifulSoup(html_content, "html.parser")
+    return soup.get_text()
 
-start2 = time.perf_counter()
-print("Opening the document, saving images:", start2 - start1)
 
-# parse through the content
-soup = BeautifulSoup(docx_text, "html.parser")
+def _break_into_paragraphs(text: str) -> list:
+    """
+    Break the text into paragraphs and discards empty ones
+    :param text:
+    :return:
+    """
+    paragraphs = [p for p in text.splitlines() if p]
+    return paragraphs
 
-# break text into paragraphs and discards empty ones
-paragraphs = [p for p in soup.get_text().splitlines() if p]
 
-# clean the paragraphs from image placeholders. isascii() method is used in
-# order to discard empty strings or those containing punctuation marks or
-# words in English.
-text_blocks = set([])
-for p in paragraphs:
-    if f"----media/" not in p and not p.isascii():
-        text_blocks.add(p)
-    else:
-        text_blocks.update(
-            [block for block in p.split("----")
-             if f"media/image" not in block and not block.isascii()]
+def _clean_from_image_placeholders(par_list: list) -> set:
+    """
+    Clean the paragraphs from image placeholders. isascii() method is used in
+    order to discard empty strings or those containing punctuation marks or
+    words in English.
+    :param par_list:
+    :return:
+    """
+    text_blocks = set([])
+    for p in par_list:
+        if f"----media/" not in p and not p.isascii():
+            text_blocks.add(p)
+        else:
+            text_blocks.update(
+                [block for block in p.split("----")
+                 if f"media/image" not in block and not block.isascii()]
+            )
+    return text_blocks
+
+
+def _break_into_sentences(text_iterable) -> set:
+    """
+    Break text into sentences
+    :param text_iterable: list or set containing strings
+    :return:
+    """
+    sentences = set([])
+    for block in text_iterable:
+        sentences.update(
+            [s for s in block.split(".") if not s.isascii()]
         )
-
-# Now, when there's no image placeholders, break text into sentences
-sentences = set([])
-for block in text_blocks:
-    sentences.update(
-        [s for s in block.split(".") if not s.isascii()]
-    )
-
-start3 = time.perf_counter()
-print("Breaking the text into segments:", start3 - start2)
+    return sentences
 
 
-def translate_with_google(string):
+def _create_an_html_text(text):
+    return "".join(f"<p>{p}</p>" for p in text.splitlines() if p)
+
+
+def _translate_block_with_google(string) -> str:
+    """
+    Translate the text by sending it to the Google Translator API
+    :param string:
+    :return:
+    """
     url = f"https://translate.googleapis.com/translate_a/single?client=gtx" \
           f"&sl={LANG_IN}&tl={LANG_OUT}&dt=t&q={string}&ie=UTF-8&oe=UTF-8"
-    r = requests.get(url)
+    req = requests.get(url)
     response = ""
-    if r.json()[0]:
-        for item in r.json()[0]:
+    if req.json()[0]:
+        for item in req.json()[0]:
             if item[0]:
                 response += item[0]
     return response
 
 
-# translate the text by sending its parts to the Google Translator API and
-# create translation table
-trans_table = []
-for s in sorted(sentences, key=len, reverse=True):
-    translated_str = translate_with_google(s)
-    trans_table.append((s, f" {translated_str} "))
-
-# todo: remove this and other debugging "prints"
-with open("translation_table.json", "w") as json_file:
-    json_file.write(json.dumps(dict(trans_table)))
-
-# Prepare the text for editing; replace strings using the translation table
-text = docx_text.replace("\n", "")
-for trans_tuple in trans_table:
-    text = text.replace(trans_tuple[0], trans_tuple[1])
-
-start4 = time.perf_counter()
-print("Translation:", start4 - start3)
-print(f"There were {len(sentences)} phrases to translate, average time "
-      f"is {(start4 - start3)/len(sentences)} for each phrase")
-
-# Edit <span> html-tag to <p> in order to fix the problem with tags inside
-# a text parsed by docx2python module. This module places paragraphs
-# inside a <span> tag, that is not very great.
-text = text.replace("<span", "<p").replace("span>", "p>")
+def _make_trans_table_with_google(text_blocks) -> list:
+    """
+    Translates the text and creates translation table
+    :param text_blocks:
+    :return:
+    """
+    translation_table = []
+    for s in sorted(text_blocks, key=len, reverse=True):
+        translated_str = _translate_block_with_google(s)
+        translation_table.append((s, f" {translated_str} "))
+    return translation_table
 
 
-# Find occurrences of a pattern like "----media/image1.png----",
-# "----media/image6.jpeg----", which are image placeholders.
-#       Match characters "----media/" and then "----" literally
-#       Group (image\d+\.(.{3}|.{4})):
-#           "image" matches literally
-#           "\d" matches digits
-#               "\d+" matches digits, one or more occurrences
-#           "\." matches "."
-#           Group (.{3}|.{4}) matches exactly 3 or 4 any characters:
-#               ".{3}" matches exactly 3 any characters
-#               ".{4}" matches exactly 4 any characters
-regex_for_image = re.compile(r'----media/(image\d+\.(.{3}|.{4}))----')
+def _translate_text(text: str, translation_table: list) -> str:
+    """
+    Replace strings using the translation table
+    :param text:
+    :param translation_table:
+    :return:
+    """
+    for trans_tuple in translation_table:
+        text = text.replace(trans_tuple[0], trans_tuple[1])
+    return text
 
-# Find occurrences of a pattern like "font-size:28pt"
-#       "\d+" matches digits, one or more occurrences
-regex_for_font = re.compile(r'font-size:(\d+)pt')
-font_sizes = set(regex_for_font.findall(text))
 
-# Edit image placeholders
-for img_pl in regex_for_image.findall(text):
-    img_pl = img_pl[0]
+def _change_span_and_p_tags(given_text: str) -> str:
+    """
+    Edit <span> html-tag to <p> in order to fix the problem with tags inside
+    a text parsed by docx2python module. This module places paragraphs
+    inside a <span> tag, that is not very great.
+    :param given_text:
+    :return:
+    """
+    return given_text.replace("<span", "<p").replace("span>", "p>")
+
+
+def _edit_image_placeholders(html_str: str, image: str, size: str) -> str:
+    # First, search for images inside text blocks, usually it's the wmf
+    # images, which is used as formulas in MS Word
+    if image.endswith(".wmf") and \
+            f'</p>----media/{image}----<p style="font-size:{size}pt">' \
+            in html_str:
+        html_str = html_str.replace(
+            f'</p>----media/{image}----<p style="font-size:{size}pt">',
+            f'<span><img src="media/{image}" alt="{image}"></span>'
+        )
+    # Second, for images with an extension other than wmf. These images
+    # are usually figures that are placed in a separate paragraph
+    elif not image.endswith(".wmf"):
+        html_str = html_str.replace(
+            f'----media/{image}----',
+            f'<p><img src="media/{image}" alt="{image}"></p>'
+        )
+    # Third, wmf images that are placed outside of tags for some reason
+    elif f'</p>----media/{image}----' in html_str:
+        html_str = html_str.replace(
+            f'</p>----media/{image}----',
+            f'<span><img src="media/{image}" alt="{image}"></span></p>'
+        )
+    # Fourth, some other images that were not covered by previous clauses
+    else:
+        html_str = html_str.replace(
+            f'----media/{image}----',
+            f'<span><img src="media/{image}" alt="{image}"></span>'
+        )
+    return html_str
+
+
+def _edit_images_and_fonts(html_content: str) -> str:
+    # Find occurrences of a pattern like "----media/image1.png----",
+    # "----media/image6.jpeg----", which are image placeholders.
+    #       Match characters "----media/" and then "----" literally
+    #       Group (image\d+\.(.{3}|.{4})):
+    #           "image" matches literally
+    #           "\d" matches digits
+    #               "\d+" matches digits, one or more occurrences
+    #           "\." matches "."
+    #           Group (.{3}|.{4}) matches exactly 3 or 4 any characters:
+    #               ".{3}" matches exactly 3 any characters
+    #               ".{4}" matches exactly 4 any characters
+    regex_for_image = re.compile(r'----media/(image\d+\.(.{3}|.{4}))----')
+
+    # Find occurrences of a pattern like "font-size:28pt"
+    #       "\d+" matches digits, one or more occurrences
+    regex_for_font = re.compile(r'font-size:(\d+)pt')
+    font_sizes = set(regex_for_font.findall(html_content))
+
+    # Edit image placeholders
+    for img_pl in regex_for_image.findall(html_content):
+        img_pl = img_pl[0]
+        for fs in font_sizes:
+            html_content = _edit_image_placeholders(html_content, img_pl, fs)
+
+    # By default, docx2python writes the font size as double the original size.
+    # Need to edit these fonts
     for fs in font_sizes:
-        # First, search for images inside text blocks, usually it's the wmf
-        # images, which is used as formulas in MS Word
-        if img_pl.endswith(".wmf") and \
-                f'</p>----media/{img_pl}----<p style="font-size:{fs}pt">' \
-                in text:
-            text = text.replace(
-                f'</p>----media/{img_pl}----<p style="font-size:{fs}pt">',
-                f'<span><img src="media/{img_pl}" alt="{img_pl}"></span>'
-            )
-        # Second, for images with an extension other than wmf. These images
-        # are usually figures that are placed in a separate paragraph
-        elif not img_pl.endswith(".wmf"):
-            text = text.replace(
-                f'----media/{img_pl}----',
-                f'<p><img src="media/{img_pl}" alt="{img_pl}"></p>'
-            )
-        # Third, wmf images that are placed outside of tags for some reason
-        elif f'</p>----media/{img_pl}----' in text:
-            text = text.replace(
-                f'</p>----media/{img_pl}----',
-                f'<span><img src="media/{img_pl}" alt="{img_pl}"></span></p>'
-            )
-        # Fourth, some other images that were not covered by previous clauses
-        else:
-            text = text.replace(
-                f'----media/{img_pl}----',
-                f'<span><img src="media/{img_pl}" alt="{img_pl}"></span>'
-            )
+        html_content = html_content.replace(
+            f'font-size:{fs}pt',
+            f'font-size:{int(fs)//2}pt'
+        )
+    return html_content
 
-start5 = time.perf_counter()
-print("Editing image placeholders:", start5 - start4)
 
-# By default, docx2python writes the font size as double the original size.
-# Need to edit these fonts
-for fs in font_sizes:
-    text = text.replace(
-        f'font-size:{fs}pt',
-        f'font-size:{int(fs)//2}pt'
-    )
+def _write_html_file(file_name, text, images=False):
+    """
+    Write a html file
+    :param file_name:
+    :param text:
+    :return:
+    """
+    suffix = "_complex" if images else "_simple"
+    file_name = file_name.rsplit(".", 1)[0] + "_translated" + suffix + ".html"
+    with open(file_name, "w") as html_file:
+        html_file.write('<!DOCTYPE html><html lang="en"><head><meta charset='
+                        '"UTF-8"><title>Translation</title></head><body>')
+        html_file.write(text)
+        html_file.write('</body></html>')
 
-start6 = time.perf_counter()
-print("Editing font size:", start6 - start5)
 
-# write a html file
-filename = filename.rsplit(".", 1)[0] + "_translated.html"
-with open(filename, "w") as html_file:
-    html_file.write('<!DOCTYPE html><html lang="en"><head><meta charset='
-                    '"UTF-8"><title>Translation</title></head><body>')
-    html_file.write(text)
-    html_file.write('</body></html>')
+def translate_as_html(file_name):
+    start1 = time.perf_counter()
 
-end = time.perf_counter()
-print("Writing the html file:", end - start6)
+    docx_text = _open_doc(file_name, image_folder="media", html=True)
+
+    start2 = time.perf_counter()
+    print("Opening the document, saving images:", start2 - start1)
+
+    parsed_text = _parse_through_html(docx_text)
+    paragraph_list = _break_into_paragraphs(parsed_text)
+    text_set = _clean_from_image_placeholders(paragraph_list)
+    text_set = _break_into_sentences(text_set)
+
+    start3 = time.perf_counter()
+    print("Breaking the text into segments:", start3 - start2)
+
+    trans_table = _make_trans_table_with_google(text_set)
+
+    with open("translation_table.json", "w") as json_file:
+        json_file.write(json.dumps(dict(trans_table)))
+
+    # Prepare the text for editing
+    docx_text = docx_text.replace("\n", "")
+
+    trans_text = _translate_text(docx_text, trans_table)
+
+    start4 = time.perf_counter()
+    print("Translation:", start4 - start3)
+    print(f"There were {len(text_set)} phrases to translate, average time "
+          f"is {(start4 - start3)/len(text_set)} for each phrase")
+
+    html_text = _change_span_and_p_tags(trans_text)
+    html_text = _edit_images_and_fonts(html_text)
+
+    start5 = time.perf_counter()
+    print("Editing images and font size:", start5 - start4)
+
+    _write_html_file(file_name, html_text, images=True)
+
+    end = time.perf_counter()
+    print("Writing the html file:", end - start5)
+
+
+def translate_as_text(file_name):
+    start1 = time.perf_counter()
+
+    docx_text = _open_doc(file_name)
+
+    start2 = time.perf_counter()
+    print("Opening the document", start2 - start1)
+
+    paragraph_list = _break_into_paragraphs(docx_text)
+
+    start3 = time.perf_counter()
+    print("Breaking the text into segments:", start3 - start2)
+
+    trans_table = _make_trans_table_with_google(paragraph_list)
+
+    with open("translation_table.json", "w") as json_file:
+        json_file.write(json.dumps(dict(trans_table)))
+
+    # Prepare the text for editing
+    docx_text = _create_an_html_text(docx_text)
+    trans_text = _translate_text(docx_text, trans_table)
+
+    start4 = time.perf_counter()
+    print("Translation:", start4 - start3)
+    print(f"There were {len(paragraph_list)} phrases to translate, average "
+          f"time is {(start4 - start3)/len(paragraph_list)} for each phrase")
+
+    _write_html_file(file_name, trans_text)
+
+    end = time.perf_counter()
+    print("Writing the html file:", end - start4)
+
+
+filename = "Test.docx"
+
+LANG_IN = "uk"
+LANG_OUT = "en"
+
+translate_as_html(filename)
+
+# todo: remove writing a json file and "prints", used for debugging
