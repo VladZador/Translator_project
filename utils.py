@@ -7,7 +7,7 @@ from bs4 import BeautifulSoup
 
 start1 = time.perf_counter()
 
-filename = "Test.docx"
+filename = "Аврамов_укр.docx"
 
 LANG_IN = "uk"
 LANG_OUT = "en"
@@ -79,6 +79,8 @@ for trans_tuple in trans_table:
 
 start4 = time.perf_counter()
 print("Translation:", start4 - start3)
+print(f"There were {len(sentences)} phrases to translate, average time "
+      f"is {(start4 - start3)/len(sentences)} for each phrase")
 
 # Edit <span> html-tag to <p> in order to fix the problem with tags inside
 # a text parsed by docx2python module. This module places paragraphs
@@ -152,7 +154,7 @@ start6 = time.perf_counter()
 print("Editing font size:", start6 - start5)
 
 # write a html file
-filename = filename.rsplit(".", 1)[0] + ".html"
+filename = filename.rsplit(".", 1)[0] + "_translated.html"
 with open(filename, "w") as html_file:
     html_file.write('<!DOCTYPE html><html lang="en"><head><meta charset='
                     '"UTF-8"><title>Translation</title></head><body>')
