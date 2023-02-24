@@ -77,7 +77,7 @@ def _break_into_sentences(text_iterable) -> set:
     return sentences
 
 
-def _create_an_html_text(text):
+def _create_an_html_text(text: str) -> str:
     return "".join(f"<p>{p}</p>" for p in text.splitlines() if p)
 
 
@@ -142,26 +142,26 @@ def _edit_image_placeholders(html_str: str, image: str, size: str) -> str:
             in html_str:
         html_str = html_str.replace(
             f'</p>----media/{image}----<p style="font-size:{size}pt">',
-            f'<span><img src="media/{image}" alt="{image}"></span>'
+            f'<span><img src="static/media/{image}" alt="{image}"></span>'
         )
     # Second, for images with an extension other than wmf. These images
     # are usually figures that are placed in a separate paragraph
     elif not image.endswith(".wmf"):
         html_str = html_str.replace(
             f'----media/{image}----',
-            f'<p><img src="media/{image}" alt="{image}"></p>'
+            f'<p><img src="static/media/{image}" alt="{image}"></p>'
         )
     # Third, wmf images that are placed outside of tags for some reason
     elif f'</p>----media/{image}----' in html_str:
         html_str = html_str.replace(
             f'</p>----media/{image}----',
-            f'<span><img src="media/{image}" alt="{image}"></span></p>'
+            f'<span><img src="static/media/{image}" alt="{image}"></span></p>'
         )
     # Fourth, some other images that were not covered by previous clauses
     else:
         html_str = html_str.replace(
             f'----media/{image}----',
-            f'<span><img src="media/{image}" alt="{image}"></span>'
+            f'<span><img src="static/media/{image}" alt="{image}"></span>'
         )
     return html_str
 
@@ -211,18 +211,20 @@ def _write_html_file(file_name, text, images=False):
     suffix = "_complex" if images else "_simple"
     file_name = "templates/" + file_name.rsplit(".", 1)[0] + \
                 "_translated" + suffix + ".html"
+
     with open(file_name, "w") as html_file:
         html_file.write('<!DOCTYPE html><html lang="en"><head><meta charset='
                         '"UTF-8"><title>Translation</title></head><body>')
         html_file.write(text)
         html_file.write('</body></html>')
+
     return html_file
 
 
-def translate_as_html(file_name):
+def _translate_as_html(file_name):
     start1 = time.perf_counter()
 
-    docx_text = _open_doc(file_name, image_folder="media", html=True)
+    docx_text = _open_doc(file_name, image_folder="static/media", html=True)
 
     start2 = time.perf_counter()
     print("Opening the document, saving images:", start2 - start1)
@@ -258,13 +260,10 @@ def translate_as_html(file_name):
 
     file = _write_html_file(file_name, html_text, images=True)
 
-    end = time.perf_counter()
-    print("Writing the html file:", end - start5)
-
     return file
 
 
-def translate_as_text(file_name):
+def _translate_as_text(file_name):
     start1 = time.perf_counter()
 
     docx_text = _open_doc(file_name)
@@ -283,7 +282,7 @@ def translate_as_text(file_name):
         json_file.write(json.dumps(dict(trans_table)))
 
     # Prepare the text for editing
-    docx_text = _create_an_html_text(docx_text)
+    # docx_text = _create_an_html_text(docx_text)
     trans_text = _translate_text(docx_text, trans_table)
 
     start4 = time.perf_counter()
@@ -293,19 +292,22 @@ def translate_as_text(file_name):
 
     file = _write_html_file(file_name, trans_text)
 
-    end = time.perf_counter()
-    print("Writing the html file:", end - start4)
-
     return file
 
 
-filename = "Test.docx"
+def translate(file_name, simple=True):
+    if simple:
+        return _translate_as_text(file_name)
+    return _translate_as_html(file_name)
+
+
+test_filename = "Test.docx"
 
 LANG_IN = "uk"
 LANG_OUT = "en"
 
 
 if __name__ == "__main__":
-    translate_as_html(filename)
+    translated_text = translate(test_filename)
 
 # todo: remove writing a json file and "prints", used for debugging

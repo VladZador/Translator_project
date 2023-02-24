@@ -5,7 +5,7 @@ from wtforms.validators import InputRequired
 from werkzeug.utils import secure_filename
 import os
 
-from utils import translate_as_text
+from utils import translate
 
 app = Flask(__name__)
 app.config["SECRET_KEY"] = "translate_secret_key"
@@ -27,7 +27,7 @@ def file_upload():
             app.config["UPLOAD_FOLDER"],
             secure_filename(file.filename)
         ))  # Save the file
-        html_file = translate_as_text(secure_filename(file.filename))
+        html_file = translate(secure_filename(file.filename), simple=False)
         return render_template(html_file.name.split("/")[1])
     return render_template("index.html", form=form)
 
