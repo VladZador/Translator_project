@@ -209,12 +209,14 @@ def _write_html_file(file_name, text, images=False):
     :return:
     """
     suffix = "_complex" if images else "_simple"
-    file_name = file_name.rsplit(".", 1)[0] + "_translated" + suffix + ".html"
+    file_name = "templates/" + file_name.rsplit(".", 1)[0] + \
+                "_translated" + suffix + ".html"
     with open(file_name, "w") as html_file:
         html_file.write('<!DOCTYPE html><html lang="en"><head><meta charset='
                         '"UTF-8"><title>Translation</title></head><body>')
         html_file.write(text)
         html_file.write('</body></html>')
+    return html_file
 
 
 def translate_as_html(file_name):
@@ -254,10 +256,12 @@ def translate_as_html(file_name):
     start5 = time.perf_counter()
     print("Editing images and font size:", start5 - start4)
 
-    _write_html_file(file_name, html_text, images=True)
+    file = _write_html_file(file_name, html_text, images=True)
 
     end = time.perf_counter()
     print("Writing the html file:", end - start5)
+
+    return file
 
 
 def translate_as_text(file_name):
@@ -287,10 +291,12 @@ def translate_as_text(file_name):
     print(f"There were {len(paragraph_list)} phrases to translate, average "
           f"time is {(start4 - start3)/len(paragraph_list)} for each phrase")
 
-    _write_html_file(file_name, trans_text)
+    file = _write_html_file(file_name, trans_text)
 
     end = time.perf_counter()
     print("Writing the html file:", end - start4)
+
+    return file
 
 
 filename = "Test.docx"
@@ -298,6 +304,8 @@ filename = "Test.docx"
 LANG_IN = "uk"
 LANG_OUT = "en"
 
-translate_as_html(filename)
+
+if __name__ == "__main__":
+    translate_as_html(filename)
 
 # todo: remove writing a json file and "prints", used for debugging
