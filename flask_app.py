@@ -1,4 +1,4 @@
-from flask import Flask, render_template
+from flask import Flask, render_template, redirect, url_for
 from flask_wtf import FlaskForm
 from wtforms import FileField, SubmitField
 from wtforms.validators import InputRequired
@@ -27,9 +27,16 @@ def file_upload():
             app.config["UPLOAD_FOLDER"],
             secure_filename(file.filename)
         ))  # Save the file
-        html_file = translate(secure_filename(file.filename), simple=False)
-        return render_template(html_file.name.split("/")[1])
+        html_file = translate(secure_filename(file.filename), simple=True)
+        return redirect(
+            url_for("translated_file", filename=html_file.name.split("/")[1])
+        )
     return render_template("index.html", form=form)
+
+
+@app.route("/<path:filename>")
+def translated_file(filename):
+    return render_template(filename)
 
 
 if __name__ == "__main__":

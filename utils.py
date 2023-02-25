@@ -201,16 +201,14 @@ def _edit_images_and_fonts(html_content: str) -> str:
     return html_content
 
 
-def _write_html_file(file_name, text, images=False):
+def _write_html_file(file_name, text):
     """
     Write a html file
     :param file_name:
     :param text:
     :return:
     """
-    suffix = "_complex" if images else "_simple"
-    file_name = "templates/" + file_name.rsplit(".", 1)[0] + \
-                "_translated" + suffix + ".html"
+    file_name = "templates/" + file_name.rsplit(".", 1)[0] + ".html"
 
     with open(file_name, "w") as html_file:
         html_file.write('<!DOCTYPE html><html lang="en"><head><meta charset='
@@ -258,7 +256,7 @@ def _translate_as_html(file_name):
     start5 = time.perf_counter()
     print("Editing images and font size:", start5 - start4)
 
-    file = _write_html_file(file_name, html_text, images=True)
+    file = _write_html_file(file_name, html_text)
 
     return file
 
