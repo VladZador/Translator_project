@@ -4,6 +4,10 @@ import requests
 import re
 from docx2python import docx2python
 from bs4 import BeautifulSoup
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
 
 
 def _open_doc(file_name: str, image_folder: str = None, html=False) -> str:
@@ -15,7 +19,7 @@ def _open_doc(file_name: str, image_folder: str = None, html=False) -> str:
     :return:
     """
     with docx2python(
-            file_name,
+            os.environ.get("UPLOAD_FOLDER") + file_name,
             image_folder=image_folder,
             html=html
     ) as docx_content:

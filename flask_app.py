@@ -4,12 +4,15 @@ from wtforms import FileField, SubmitField
 from wtforms.validators import InputRequired
 from werkzeug.utils import secure_filename
 import os
+from dotenv import load_dotenv
 
 from utils import translate
 
+load_dotenv()
+
 app = Flask(__name__)
 app.config["SECRET_KEY"] = "translate_secret_key"
-app.config["UPLOAD_FOLDER"] = "static/files"
+app.config["UPLOAD_FOLDER"] = os.environ.get("UPLOAD_FOLDER")
 
 
 class UploadFileForm(FlaskForm):
@@ -22,6 +25,7 @@ def file_upload():
     form = UploadFileForm()
     if form.validate_on_submit():
         file = form.file.data  # Grab the file
+        breakpoint()
         file.save(os.path.join(
             os.path.abspath(os.path.dirname(__file__)),
             app.config["UPLOAD_FOLDER"],
@@ -41,3 +45,10 @@ def translated_file(filename):
 
 if __name__ == "__main__":
     app.run(debug=True)
+
+
+# todo: connect bootstrap, add toggle button for "simple/complex" translation
+
+# todo: separate functions into different directories
+
+# todo: add removal of old media files when starting a new translation
