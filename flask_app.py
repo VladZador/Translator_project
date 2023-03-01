@@ -1,5 +1,6 @@
 from flask import Flask, render_template, redirect, url_for, request
 from flask_wtf import FlaskForm
+from jinja2 import TemplateNotFound
 from wtforms import FileField, SubmitField
 from wtforms.validators import InputRequired
 from werkzeug.utils import secure_filename
@@ -21,7 +22,7 @@ class UploadFileForm(FlaskForm):
 
 
 @app.route("/", methods=["GET", "POST"])
-def file_upload():
+def index():
     form = UploadFileForm()
     if form.validate_on_submit():
         file = form.file.data  # Grab the file
@@ -41,7 +42,10 @@ def file_upload():
 
 @app.route("/<path:filename>")
 def translated_file(filename):
-    return render_template(filename)
+    try:
+        return render_template(filename)
+    except TemplateNotFound:
+        return render_template('error404.html'), 404
 
 
 if __name__ == "__main__":
