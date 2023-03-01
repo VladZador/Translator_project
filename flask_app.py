@@ -1,4 +1,4 @@
-from flask import Flask, render_template, redirect, url_for
+from flask import Flask, render_template, redirect, url_for, request
 from flask_wtf import FlaskForm
 from wtforms import FileField, SubmitField
 from wtforms.validators import InputRequired
@@ -25,13 +25,14 @@ def file_upload():
     form = UploadFileForm()
     if form.validate_on_submit():
         file = form.file.data  # Grab the file
-        breakpoint()
         file.save(os.path.join(
             os.path.abspath(os.path.dirname(__file__)),
             app.config["UPLOAD_FOLDER"],
             secure_filename(file.filename)
         ))  # Save the file
-        html_file = translate(secure_filename(file.filename), simple=True)
+        simple = True if not request.form.get("complex") else False
+        breakpoint()
+        html_file = translate(secure_filename(file.filename), simple=simple)
         return redirect(
             url_for("translated_file", filename=html_file.name.split("/")[1])
         )
@@ -46,8 +47,6 @@ def translated_file(filename):
 if __name__ == "__main__":
     app.run(debug=True)
 
-
-# todo: connect bootstrap, add toggle button for "simple/complex" translation
 
 # todo: separate functions into different directories
 

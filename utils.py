@@ -205,14 +205,15 @@ def _edit_images_and_fonts(html_content: str) -> str:
     return html_content
 
 
-def _write_html_file(file_name, text):
+def _write_html_file(file_name, text, simple=True):
     """
     Write a html file
     :param file_name:
     :param text:
     :return:
     """
-    file_name = "templates/" + file_name.rsplit(".", 1)[0] + ".html"
+    suffix = "" if simple else "_complex"
+    file_name = "templates/" + file_name.rsplit(".", 1)[0] + suffix + ".html"
 
     with open(file_name, "w") as html_file:
         html_file.write('<!DOCTYPE html><html lang="en"><head><meta charset='
@@ -260,7 +261,7 @@ def _translate_as_html(file_name):
     start5 = time.perf_counter()
     print("Editing images and font size:", start5 - start4)
 
-    file = _write_html_file(file_name, html_text)
+    file = _write_html_file(file_name, html_text, simple=False)
 
     return file
 
@@ -303,13 +304,17 @@ def translate(file_name, simple=True):
     return _translate_as_html(file_name)
 
 
-test_filename = "Test.docx"
-
 LANG_IN = "uk"
 LANG_OUT = "en"
 
 
 if __name__ == "__main__":
+    test_filename = "Test.docx"
     translated_text = translate(test_filename)
+    # docx_text = _open_doc(
+    #     test_filename, image_folder="static/media", html=True
+    # )
+    # _write_html_file(test_filename, docx_text)
+
 
 # todo: remove writing a json file and "prints", used for debugging
