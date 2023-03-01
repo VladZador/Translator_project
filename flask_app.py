@@ -32,7 +32,6 @@ def index():
             secure_filename(file.filename)
         ))  # Save the file
         simple = True if not request.form.get("complex") else False
-        breakpoint()
         html_file = translate(secure_filename(file.filename), simple=simple)
         return redirect(
             url_for("translated_file", filename=html_file.name.split("/")[1])
@@ -54,4 +53,4 @@ if __name__ == "__main__":
 
 # todo: separate functions into different directories
 
-# todo: add removal of old media files when starting a new translation
+# todo: try to add file conversion

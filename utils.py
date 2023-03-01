@@ -8,6 +8,12 @@ import os
 from dotenv import load_dotenv
 
 load_dotenv()
+media_path = os.environ.get("MEDIA_FOLDER")
+
+
+def _clear_media():
+    for file in os.listdir(media_path):
+        os.remove(media_path + file)
 
 
 def _open_doc(file_name: str, image_folder: str = None, html=False) -> str:
@@ -146,26 +152,26 @@ def _edit_image_placeholders(html_str: str, image: str, size: str) -> str:
             in html_str:
         html_str = html_str.replace(
             f'</p>----media/{image}----<p style="font-size:{size}pt">',
-            f'<span><img src="static/media/{image}" alt="{image}"></span>'
+            f'<span><img src="{media_path}{image}" alt="{image}"></span>'
         )
     # Second, for images with an extension other than wmf. These images
     # are usually figures that are placed in a separate paragraph
     elif not image.endswith(".wmf"):
         html_str = html_str.replace(
             f'----media/{image}----',
-            f'<p><img src="static/media/{image}" alt="{image}"></p>'
+            f'<p><img src="{media_path}{image}" alt="{image}"></p>'
         )
     # Third, wmf images that are placed outside of tags for some reason
     elif f'</p>----media/{image}----' in html_str:
         html_str = html_str.replace(
             f'</p>----media/{image}----',
-            f'<span><img src="static/media/{image}" alt="{image}"></span></p>'
+            f'<span><img src="{media_path}{image}" alt="{image}"></span></p>'
         )
     # Fourth, some other images that were not covered by previous clauses
     else:
         html_str = html_str.replace(
             f'----media/{image}----',
-            f'<span><img src="static/media/{image}" alt="{image}"></span>'
+            f'<span><img src="{media_path}{image}" alt="{image}"></span>'
         )
     return html_str
 
@@ -227,18 +233,23 @@ def _write_html_file(file_name, text, simple=True):
 def _translate_as_html(file_name):
     start1 = time.perf_counter()
 
-    docx_text = _open_doc(file_name, image_folder="static/media", html=True)
+    _clear_media()
 
     start2 = time.perf_counter()
-    print("Opening the document, saving images:", start2 - start1)
+    print("Removing old media files:", start2 - start1)
+
+    docx_text = _open_doc(file_name, image_folder=media_path, html=True)
+
+    start3 = time.perf_counter()
+    print("Opening the document, saving images:", start3 - start2)
 
     parsed_text = _parse_through_html(docx_text)
     paragraph_list = _break_into_paragraphs(parsed_text)
     text_set = _clean_from_image_placeholders(paragraph_list)
     text_set = _break_into_sentences(text_set)
 
-    start3 = time.perf_counter()
-    print("Breaking the text into segments:", start3 - start2)
+    start4 = time.perf_counter()
+    print("Breaking the text into segments:", start4 - start3)
 
     trans_table = _make_trans_table_with_google(text_set)
 
@@ -250,16 +261,16 @@ def _translate_as_html(file_name):
 
     trans_text = _translate_text(docx_text, trans_table)
 
-    start4 = time.perf_counter()
-    print("Translation:", start4 - start3)
+    start5 = time.perf_counter()
+    print("Translation:", start5 - start4)
     print(f"There were {len(text_set)} phrases to translate, average time "
-          f"is {(start4 - start3)/len(text_set)} for each phrase")
+          f"is {(start5 - start4)/len(text_set)} for each phrase")
 
     html_text = _change_span_and_p_tags(trans_text)
     html_text = _edit_images_and_fonts(html_text)
 
-    start5 = time.perf_counter()
-    print("Editing images and font size:", start5 - start4)
+    start6 = time.perf_counter()
+    print("Editing images and font size:", start6 - start5)
 
     file = _write_html_file(file_name, html_text, simple=False)
 
@@ -269,15 +280,20 @@ def _translate_as_html(file_name):
 def _translate_as_text(file_name):
     start1 = time.perf_counter()
 
-    docx_text = _open_doc(file_name)
+    _clear_media()
 
     start2 = time.perf_counter()
-    print("Opening the document", start2 - start1)
+    print("Removing old media files:", start2 - start1)
+
+    docx_text = _open_doc(file_name)
+
+    start3 = time.perf_counter()
+    print("Opening the document", start3 - start2)
 
     paragraph_list = _break_into_paragraphs(docx_text)
 
-    start3 = time.perf_counter()
-    print("Breaking the text into segments:", start3 - start2)
+    start4 = time.perf_counter()
+    print("Breaking the text into segments:", start4 - start3)
 
     trans_table = _make_trans_table_with_google(paragraph_list)
 
@@ -288,10 +304,10 @@ def _translate_as_text(file_name):
     # docx_text = _create_an_html_text(docx_text)
     trans_text = _translate_text(docx_text, trans_table)
 
-    start4 = time.perf_counter()
-    print("Translation:", start4 - start3)
+    start5 = time.perf_counter()
+    print("Translation:", start5 - start4)
     print(f"There were {len(paragraph_list)} phrases to translate, average "
-          f"time is {(start4 - start3)/len(paragraph_list)} for each phrase")
+          f"time is {(start5 - start4)/len(paragraph_list)} for each phrase")
 
     file = _write_html_file(file_name, trans_text)
 
@@ -312,7 +328,7 @@ if __name__ == "__main__":
     test_filename = "Test.docx"
     translated_text = translate(test_filename)
     # docx_text = _open_doc(
-    #     test_filename, image_folder="static/media", html=True
+    #     test_filename, image_folder=media_path, html=True
     # )
     # _write_html_file(test_filename, docx_text)
 
